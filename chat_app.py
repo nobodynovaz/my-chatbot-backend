@@ -26,429 +26,215 @@ app = Flask(__name__)
 print(">>> chat_app.py loaded with platform cleaner + custom UI <<<")
 
 # ------------ HTML TEMPLATE (CUSTOM UI) ------------
-
 FORM_HTML = """
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Live Broadcasting Chatbot</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+<head>
+  <meta charset="utf-8">
+  <title>Live Broadcasting India — Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <style>
-      :root {
-        --bg-dark: #020617;
-        --bg-card: rgba(15, 23, 42, 0.92);
-        --border-subtle: rgba(148, 163, 184, 0.35);
-        --accent: #22c55e;
-        --accent-soft: rgba(34, 197, 94, 0.18);
-        --accent-strong: #22c55e;
-        --text-main: #e5e7eb;
-        --text-soft: #9ca3af;
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #E7EEF9;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .chat-container {
+      width: 100%;
+      max-width: 850px;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 8px 26px rgba(0,0,0,0.1);
+      overflow: hidden;
+      border: 1px solid #d9e5ff;
+    }
+
+    .chat-header {
+      background: linear-gradient(to right, #3F51E0, #4A58E8);
+      padding: 20px 28px;
+      color: white;
+      font-size: 1.15rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chat-header span {
+      opacity: 0.9;
+      font-size: 0.85rem;
+      font-weight: 400;
+    }
+
+    .chat-body {
+      padding: 24px 28px;
+      max-height: 450px;
+      overflow-y: auto;
+    }
+
+    .empty-message {
+      text-align: center;
+      font-size: 0.95rem;
+      padding: 20px 0;
+      color: #6b7280;
+    }
+
+    .mode-note {
+      font-size: 0.85rem;
+      color: #4A58E8;
+      margin-bottom: 10px;
+      opacity: 0.8;
+    }
+
+    .response {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #222;
+      white-space: pre-line;
+      margin-bottom: 14px;
+    }
+
+    .sources-title {
+      margin-top: 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #4A58E8;
+      opacity: 0.8;
+    }
+
+    .sources-list {
+      padding: 0;
+      margin-top: 6px;
+      margin-bottom: 4px;
+      list-style: inside disc;
+      font-size: 0.85rem;
+      color: #555;
+      opacity: 0.9;
+    }
+
+    .chat-footer {
+      padding: 18px 28px;
+      background: #F5F7FF;
+      border-top: 1px solid #dce4fc;
+    }
+
+    form {
+      display: flex;
+      gap: 12px;
+    }
+
+    input[name="query"] {
+      flex: 1;
+      border-radius: 30px;
+      border: 1px solid #c5d4ff;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: 0.2s;
+    }
+
+    input[name="query"]::placeholder {
+      color: #9ca3af;
+    }
+
+    input[name="query"]:focus {
+      border-color: #4A58E8;
+      box-shadow: 0 0 0 2px rgba(74, 88, 232, 0.25);
+    }
+
+    button {
+      background: #4A58E8;
+      border: none;
+      color: white;
+      padding: 12px 22px;
+      border-radius: 30px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      background: #343ECC;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    @media(max-width:700px) {
+      form {
+        flex-direction: column;
       }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: var(--text-main);
-        background:
-          radial-gradient(circle at top left, #1d293b 0, transparent 55%),
-          radial-gradient(circle at bottom right, #0f172a 0, transparent 55%),
-          linear-gradient(135deg, #020617, #020617);
-      }
-
-      .page-shell {
+      button {
         width: 100%;
-        max-width: 1024px;
-        display: grid;
-        gap: 16px;
-        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
       }
+    }
 
-      @media (max-width: 768px) {
-        .page-shell {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
+  </style>
+</head>
 
-      .card {
-        background: var(--bg-card);
-        border-radius: 24px;
-        padding: 20px 22px;
-        border: 1px solid var(--border-subtle);
-        box-shadow:
-          0 24px 60px rgba(0, 0, 0, 0.55),
-          0 0 0 1px rgba(15, 23, 42, 0.8);
-        backdrop-filter: blur(18px);
-      }
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      Live Broadcasting Assistant
+      <span>Powered by AI + Your Website</span>
+    </div>
 
-      .header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 18px;
-      }
-
-      .logo-badge {
-        width: 40px;
-        height: 40px;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: radial-gradient(circle at 30% 20%, #4ade80, #16a34a);
-        box-shadow: 0 0 25px rgba(34, 197, 94, 0.7);
-        font-weight: 700;
-        color: #022c22;
-        font-size: 18px;
-      }
-
-      .header-text h1 {
-        font-size: 18px;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .live-pill {
-        padding: 2px 10px;
-        font-size: 11px;
-        border-radius: 999px;
-        border: 1px solid rgba(248, 113, 113, 0.6);
-        color: #fecaca;
-        background: rgba(127, 29, 29, 0.45);
-      }
-
-      .header-text p {
-        margin: 2px 0 0;
-        font-size: 13px;
-        color: var(--text-soft);
-      }
-
-      .query-form {
-        margin-top: 12px;
-        display: flex;
-        flex-direction: row;
-        gap: 10px;
-      }
-
-      @media (max-width: 640px) {
-        .query-form {
-          flex-direction: column;
-        }
-      }
-
-      .query-input-wrap {
-        position: relative;
-        flex: 1;
-      }
-
-      .query-input-wrap input {
-        width: 100%;
-        padding: 11px 38px 11px 12px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.6);
-        background: rgba(15, 23, 42, 0.85);
-        color: var(--text-main);
-        font-size: 14px;
-        outline: none;
-      }
-
-      .query-input-wrap input::placeholder {
-        color: #6b7280;
-      }
-
-      .query-input-wrap span {
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        font-size: 11px;
-        padding: 3px 8px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        color: #9ca3af;
-      }
-
-      .submit-btn {
-        border: none;
-        border-radius: 999px;
-        padding: 0 20px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        background: linear-gradient(135deg, #22c55e, #16a34a);
-        color: #022c22;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        white-space: nowrap;
-      }
-
-      .submit-btn:hover {
-        filter: brightness(1.05);
-        transform: translateY(-1px);
-      }
-
-      .submit-btn span.icon {
-        font-size: 15px;
-      }
-
-      .hint-strip {
-        margin-top: 10px;
-        font-size: 11px;
-        color: var(--text-soft);
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-
-      .hint-chip {
-        padding: 3px 8px;
-        border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.85);
-      }
-
-      .chat-block {
-        margin-top: 18px;
-        border-radius: 18px;
-        padding: 14px 16px;
-        background: radial-gradient(circle at top left, rgba(34, 197, 94, 0.10), transparent 60%),
-                    rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.5);
-      }
-
-      .chat-label {
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.09em;
-        color: #9ca3af;
-        margin-bottom: 6px;
-      }
-
-      .user-question {
-        font-size: 13px;
-        margin-bottom: 10px;
-        color: var(--text-soft);
-      }
-
-      .user-question strong {
-        color: var(--text-main);
-      }
-
-      .bot-bubble {
-        margin: 0;
-        padding: 10px 12px;
-        border-radius: 14px;
-        background: rgba(15, 23, 42, 0.85);
-        border: 1px solid rgba(34, 197, 94, 0.4);
-        font-size: 14px;
-        line-height: 1.5;
-      }
-
-      .tagline {
-        margin-top: 10px;
-        font-size: 11px;
-        color: var(--text-soft);
-      }
-
-      .tagline strong {
-        color: var(--accent-strong);
-      }
-
-      /* Right column: sources + status */
-      .side-card-title {
-        font-size: 13px;
-        font-weight: 600;
-        margin: 0 0 8px;
-      }
-
-      .mode-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 9px;
-        border-radius: 999px;
-        font-size: 11px;
-        border: 1px solid rgba(148, 163, 184, 0.6);
-        background: rgba(15, 23, 42, 0.9);
-        margin-bottom: 10px;
-      }
-
-      .mode-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 999px;
-        background: var(--accent);
-        box-shadow: 0 0 12px rgba(34, 197, 94, 0.9);
-      }
-
-      .sources-list {
-        list-style: none;
-        margin: 8px 0 0;
-        padding: 0;
-        max-height: 210px;
-        overflow: auto;
-        font-size: 12px;
-        border-radius: 12px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(55, 65, 81, 0.9);
-      }
-
-      .sources-list li {
-        padding: 8px 10px;
-        border-bottom: 1px solid rgba(31, 41, 55, 0.95);
-      }
-
-      .sources-list li:last-child {
-        border-bottom: none;
-      }
-
-      .sources-list small {
-        color: var(--text-soft);
-      }
-
-      .help-text {
-        margin-top: 10px;
-        font-size: 11px;
-        color: var(--text-soft);
-      }
-
-      .contact-box {
-        margin-top: 12px;
-        padding: 10px 11px;
-        border-radius: 14px;
-        background: var(--accent-soft);
-        color: #bbf7d0;
-        font-size: 12px;
-        border: 1px solid rgba(34, 197, 94, 0.6);
-      }
-
-      .contact-box strong {
-        color: #ecfdf5;
-      }
-
-      .contact-box .phone {
-        display: block;
-        margin-top: 4px;
-      }
-    </style>
-  </head>
-
-  <body>
-    <div class="page-shell">
-
-      <!-- LEFT: main chat card -->
-      <section class="card">
-        <header class="header">
-          <div class="logo-badge">LB</div>
-          <div class="header-text">
-            <h1>
-              Live Broadcasting Assistant
-              <span class="live-pill">LIVE READY</span>
-            </h1>
-            <p>Ask about services, events, live streaming, packages and more.</p>
-          </div>
-        </header>
-
-        <form method="post" class="query-form">
-          <div class="query-input-wrap">
-            <input
-              name="query"
-              placeholder="Example: I need a 5-camera setup for a cricket match"
-              value="{{ request.form.get('query','') }}"
-              autocomplete="off"
-            >
-            <span>Ask</span>
-          </div>
-          <button type="submit" class="submit-btn">
-            <span class="icon">➤</span>
-            Ask now
-          </button>
-        </form>
-
-        <div class="hint-strip">
-          <span class="hint-chip">“What services do you offer?”</span>
-          <span class="hint-chip">“Can you stream our wedding live?”</span>
-          <span class="hint-chip">“Do you cover football matches?”</span>
-          <span class="hint-chip">“I want a quote for a live event”</span>
-        </div>
-
-        {% if answer %}
-        <div class="chat-block">
-          <div class="chat-label">Latest reply</div>
-
-          {% if request.form.get('query') %}
-          <div class="user-question">
-            <strong>You:</strong> {{ request.form.get('query') }}
-          </div>
-          {% endif %}
-
-          <p class="bot-bubble">
-            {{ answer|replace('\\n', '<br>')|safe }}
-          </p>
-
-          <p class="tagline">
-            This assistant answers using your website content, FAQs and smart matching.
-            <strong>It does not invent random services or prices.</strong>
-          </p>
-        </div>
-        {% endif %}
-      </section>
-
-      <!-- RIGHT: status + sources + contact -->
-      <aside class="card">
-        <p class="side-card-title">How this assistant is answering</p>
+    <div class="chat-body">
+      {% if answer %}
 
         {% if mode_note %}
-        <div class="mode-pill">
-          <span class="mode-dot"></span>
-          <span>{{ mode_note }}</span>
-        </div>
-        {% else %}
-        <div class="mode-pill">
-          <span class="mode-dot"></span>
-          <span>Waiting for your first question…</span>
-        </div>
+          <div class="mode-note">{{ mode_note }}</div>
         {% endif %}
 
-        {% if sources and sources|length > 0 %}
-        <ul class="sources-list">
-          {% for s in sources %}
-          <li>
-            <small>{{ s }}</small>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <div class="help-text">
-          After you ask something, this panel will show which part of your website/FAQ
-          the answer was based on.
+        <div class="response">
+          {{ answer|replace('\\n', '<br>')|safe }}
         </div>
+
+        {% if sources %}
+          <div class="sources-title">Information used from website:</div>
+          <ul class="sources-list">
+            {% for s in sources %}
+              <li>{{ s }}</li>
+            {% endfor %}
+          </ul>
         {% endif %}
 
-        <div class="contact-box">
-          <strong>Need an exact quote?</strong>
-          <span class="phone">📞 +91-11-42908809 / +91-9911013303</span>
-          <span class="phone">📝 Or fill the enquiry form on the website.</span>
+      {% else %}
+        <div class="empty-message">
+          Ask anything like:<br><br>
+          • "What services do you offer?"<br>
+          • "Do you stream weddings?"<br>
+          • "How much for a 5-camera cricket setup?"<br>
         </div>
-      </aside>
-
+      {% endif %}
     </div>
-  </body>
+
+    <div class="chat-footer">
+      <form method="post">
+        <input name="query" placeholder="Ask about live streaming, pricing, services…" required>
+        <button type="submit">Ask Now</button>
+      </form>
+    </div>
+  </div>
+</body>
 </html>
+
 """
 
 # ------------ LOAD WEBSITE TEXT ------------
