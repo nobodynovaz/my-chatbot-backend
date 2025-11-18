@@ -23,7 +23,7 @@ LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
 
 app = Flask(__name__)
 
-print(">>> chat_app.py loaded with platform cleaner + custom UI <<<")
+print(">>> chat_app.py loaded with platform cleaner + custom UI + event answers <<<")
 
 # ------------ HTML TEMPLATE (CUSTOM UI) ------------
 FORM_HTML = """
@@ -248,7 +248,8 @@ else:
 
 
 def split_into_snippets(text: str) -> List[str]:
-    parts = re.split(r"\\n\\s*\\n", text)
+    # IMPORTANT: real newlines, not literal "\n"
+    parts = re.split(r"\n\s*\n", text)
     return [p.strip() for p in parts if p.strip()]
 
 
@@ -267,7 +268,7 @@ def load_faqs(path: str = "faq.json") -> List[Tuple[str, str]]:
         a = (item.get("answer") or "").strip()
         if not q or not a:
             continue
-        full = f"Q: {q}\\nA: {a}"
+        full = f"Q: {q}\nA: {a}"
         faqs.append((q.lower(), full))
     return faqs
 
@@ -276,7 +277,7 @@ FAQ_PAIRS: List[Tuple[str, str]] = load_faqs()
 
 # Manual FAQ for services
 SERVICES_FAQ_FULL = (
-    "Q: What services do you offer?\\n"
+    "Q: What services do you offer?\n"
     "A: We provide complete live broadcasting solutions including multi-cam production, "
     "simulcast streaming, adaptive bitrate streaming, Instagram/Facebook/YouTube Live, "
     "video editing, VOD, 360° live, wedding streaming, sports broadcasting, "
@@ -338,8 +339,8 @@ SYNONYMS = {
 
 def normalize(t: str) -> str:
     t = t.lower()
-    t = re.sub(r"[^a-z0-9\\s]", " ", t)
-    t = re.sub(r"\\s+", " ", t).strip()
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    t = re.sub(r"\s+", " ", t).strip()
     return t
 
 
@@ -375,6 +376,37 @@ def clean_answer(text: str) -> str:
     return out
 
 
+# ------------ EVENT-SPECIFIC ANSWERS (wedding etc.) ------------
+
+def event_answer(question: str) -> Optional[str]:
+    """
+    Short, clean answers for specific event types (wedding, etc.)
+    so we don't dump the whole page_text.
+    """
+    q = question.lower()
+
+    # Wedding / marriage queries
+    if (
+        "wedding" in q
+        or "marriage" in q
+        or "shaadi" in q
+        or "sangeet" in q
+        or "reception" in q
+    ):
+        return clean_answer(
+            "Yes, we provide professional live streaming for wedding events, including "
+            "multi-camera coverage of the ceremony, reception and other rituals.\n\n"
+            "We can stream privately for family & friends or simulcast to YouTube / Facebook "
+            "and other broadcasting services as per your preference.\n\n"
+            "For pricing and available packages, please contact our team:\n"
+            "📞 Call: +91-11-42908809 / +91-9911013303\n"
+            "📝 Or fill the enquiry form on our website for a customised quote."
+        )
+
+    # You can add more event types here later (sports, funerals, corporate, etc.)
+    return None
+
+
 # ------------ PRICING RULE ------------
 
 def pricing_answer(question: str) -> Optional[str]:
@@ -394,9 +426,9 @@ def pricing_answer(question: str) -> Optional[str]:
     if any(w in q for w in pricing_keywords) or any(w in q for w in sloppy_keywords):
         msg = (
             "For pricing and custom quotations (e.g. a 5-camera cricket setup), "
-            "please contact our team:\\n\\n"
-            "📞 Call: +91-11-42908809 / +91-9911013303\\n"
-            "📝 Or fill the enquiry form on our website.\\n\\n"
+            "please contact our team:\n\n"
+            "📞 Call: +91-11-42908809 / +91-9911013303\n"
+            "📝 Or fill the enquiry form on our website.\n\n"
             "Once we know your exact requirements (camera count, duration, city, platforms, "
             "graphics, replays, etc.) we’ll send a tailored quote."
         )
@@ -436,15 +468,25 @@ def faq_match(question: str) -> Optional[str]:
 
 # ------------ FALLBACK WEBSITE ANSWER ------------
 
+MAX_SNIPPET_CHARS = 400  # to avoid huge walls of text
+
 def simple_answer(question: str, retrieved: List[str]):
     if retrieved:
+        short_snips: List[str] = []
+        for s in retrieved:
+            if len(s) > MAX_SNIPPET_CHARS:
+                short_snips.append(s[:MAX_SNIPPET_CHARS] + "…")
+            else:
+                short_snips.append(s)
+
         body = (
-            "Here’s what we found related to your question:\\n\\n"
-            + "\\n\\n".join(retrieved)
-            + "\\n\\nFor a quick quote — call +91-11-42908809 / +91-9911013303 "
+            "Here’s what we found related to your question:\n\n"
+            + "\n\n".join(short_snips)
+            + "\n\nFor a quick quote — call +91-11-42908809 / +91-9911013303 "
               "or fill the enquiry form on our website."
         )
-        return clean_answer(body), retrieved, "Website text match"
+        return clean_answer(body), short_snips, "Website text match"
+
     return (
         clean_answer("Sorry, nothing found on the site."),
         [],
@@ -460,15 +502,15 @@ def call_groq_llm(q: str, retrieved: List[str]) -> Optional[str]:
 
     context = ""
     for i, t in enumerate(retrieved, 1):
-        context += f"SOURCE {i}:\\n{t}\\n\\n"
+        context += f"SOURCE {i}:\n{t}\n\n"
 
     prompt = (
-        "Answer ONLY using this website content.\\n"
-        "At the end, say exactly:\\n"
+        "Answer ONLY using this website content.\n"
+        "At the end, say exactly:\n"
         "'For a quick quote — call +91-11-42908809 / +91-9911013303 "
-        "or fill the enquiry form on our website.'\\n\\n"
-        f"Context:\\n{context}\\n"
-        f"Question: {q}\\n"
+        "or fill the enquiry form on our website.'\n\n"
+        f"Context:\n{context}\n"
+        f"Question: {q}\n"
         "Answer in 2–4 short sentences."
     )
 
@@ -518,6 +560,18 @@ def chat():
                 mode_note=mode_note,
             )
 
+        # 0 — Event-specific answers (wedding etc.) BEFORE pricing/FAQ
+        evt = event_answer(q)
+        if evt:
+            mode_note = "Event-specific question — no AI used."
+            answer = evt
+            return render_template_string(
+                FORM_HTML,
+                answer=answer,
+                sources=[],
+                mode_note=mode_note,
+            )
+
         # 1 — Pricing first
         p = pricing_answer(q)
         if p:
@@ -536,7 +590,7 @@ def chat():
             mode_note = "FAQ matched."
             answer = (
                 f
-                + "\\n\\nFor a quick quote — call +91-11-42908809 / +91-9911013303 "
+                + "\n\nFor a quick quote — call +91-11-42908809 / +91-9911013303 "
                   "or fill the enquiry form on our website."
             )
             answer = clean_answer(answer)
