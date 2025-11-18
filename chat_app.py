@@ -234,7 +234,6 @@ FORM_HTML = """
   </div>
 </body>
 </html>
-
 """
 
 # ------------ LOAD WEBSITE TEXT ------------
